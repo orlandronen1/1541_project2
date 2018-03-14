@@ -1,0 +1,24 @@
+Config file:
+1. size of L1 instruction cache in KB
+2. associativity of L1 instruction cache
+3. size of L1 data cache in KB
+4. associativity of L1 data cache
+5. size of L2 cache in KB (0 means no L2 cache)
+6. associativity of L2 cache
+7. cache block size in bytes (same for all)
+8. L2 access time in cycles
+9. memory access time in cycles
+
+Cache assumptions:
+1. all blocks in caches are initially invalid
+2. "write allocate" policy applied on a write miss
+3. "write back" policy applies
+4. LRU block replacement (using an LRU stack for each cache set)
+5. L2 is inclucsive in that a block isn't evicted from L2 if it is in L1
+6. access time for L1 cache is 0 cycles (access completed within execution cycle)
+
+After going through a trace file, print the following statistics (in this format):
+L1 Data cache:          [] accesses, [] hits, [] misses, [] miss rate
+L1 Instruction cache:   [] accesses, [] hits, [] misses, [] miss rate
+L2 cache:               [] accesses, [] hits, [] misses, [] miss rate
+
