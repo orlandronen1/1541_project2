@@ -25,6 +25,6 @@ L2 cache:               [] accesses, [] hits, [] misses, [] miss rate
 TODO:
 1. Read from config file
 2. Include functions from project 1 in cache.h
-3. Update loop as found in project 1
+3. Update loop as found in project 1 (do first)
 4. Update loop to include the data cache in addition to instruction cache
 5. Create an L2 cache variable (and include in cache_access function?)
