@@ -11,6 +11,9 @@ unsigned int D_read_misses = 0;
 unsigned int D_write_accesses = 0; 
 unsigned int D_write_misses = 0;
 
+// global var to hold main memory latency
+unsigned int M_miss_penalty = 0;
+
 #include "cache.h" 
 
 int main(int argc, char **argv)
