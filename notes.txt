@@ -28,3 +28,19 @@ TODO:
 3. Update loop as found in project 1 (do first)
 4. Update loop to include the data cache in addition to instruction cache
 5. Create an L2 cache variable (and include in cache_access function?)
+
+
+Write back w/ write allocate:
+>on hit: writes to cache, setting dirty bit for block, main mem not updated (dirty bit = 1)
+>on miss: update block in main mem and bring block to cache (dirty bit still = 0)
+>next time block is written to, update dirty bit to 1
+
+
+********* Think of L2 as a write back cache *************
+L1 always fills up before anything gets into L2
+Every time L1 evicts a block, that goes into L2
+If L2 is full, evict from it and write back to mem
+
+Difference b/w a read and write miss:
+>read miss adds mem latency once, write miss adds twice
+>new block in L1 w/ dirty = 0 and valid = 1
