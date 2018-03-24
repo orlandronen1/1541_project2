@@ -4,11 +4,15 @@ def access(cache)
     if write hit:
         nice, write to this cache
     if read miss:
-        access(next cache) get data from next cache
-        copy to this cache (dirty bit is 1) (evict() if needed)
+        Figure out where we need to write in this cache
+        access(next cache) #get data from next cache
+        save the tag in the cleared/selected_empty block that we cleared out
     if write miss:
-        write to memory (memory delay)
-        write to this cache (evict() if needed)
+        evict() if needed  #Figure out where we need to write in this cache
+        access(next cache) #write to memory (memory delay)
+        save the tag in the cleared/selected_empty block that we cleared out
+
+
 
 def evict(upper_cache, cur_cache, block_index, tag):
     lru_block = least recently used block in cur_cache
@@ -22,6 +26,8 @@ def evict(upper_cache, cur_cache, block_index, tag):
             if (assoc_block.valid = 1) AND (assoc_block.tag = upper_tag):
                 get the next recently used block and try again
     
+
+
     return lru_block to write to or equivalent access
 
 
