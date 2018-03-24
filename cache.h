@@ -111,7 +111,9 @@ if (cp[index] == NULL)
   /*gets the least recently used block*/
   
   /* Suggested code for LRU: Use qsort to create a sorted array of LRUs
-    qsort(some_copy_array, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)*/
+    qsort(some_copy_array, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)
+    int compare_function(const void * p1, const void * p1) {}
+    */
 
   
 
