@@ -1,0 +1,27 @@
+def access(cache)
+    if read hit:
+        nice, return data
+    if write hit:
+        nice, write to this cache
+    if read miss:
+        access(next cache) get data from next cache
+        copy to this cache (dirty bit is 1) (evict() if needed)
+    if write miss:
+        write to memory (memory delay)
+        write to this cache (evict() if needed)
+
+def evict(upper_cache, cur_cache, block_index, tag):
+    lru_block = least recently used block in cur_cache
+
+    if there is an upper_cache:
+        orig_address = block_index + tag * cur_cache.nsets
+        calc upper_index for upper_cache
+        calc upper_tag for upper_cache
+
+        for assoc_block in cache.blocks[upper_index]:
+            if (assoc_block.valid = 1) AND (assoc_block.tag = upper_tag):
+                get the next recently used block and try again
+    
+    return lru_block to write to or equivalent access
+
+

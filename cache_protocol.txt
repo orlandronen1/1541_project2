@@ -1,0 +1,15 @@
+read hit:
+    Claim that data was found
+write hit:
+    Set the dirty bit if not Set
+read miss:
+    bring in from next level down
+    set valid to one
+Write miss:
+    if invalid found: wrtie to level
+    else: eveict and go back through
+
+
+search L1
+if writehit: set dirty bit
+if miss: search L2 and add to latency

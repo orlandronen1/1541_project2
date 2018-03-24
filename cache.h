@@ -67,8 +67,7 @@ int cache_access(struct cache_t **cp, int cache_index, unsigned long address, in
 
 if (cp[index] == NULL) 
 {
-	latency += M_miss_penalty;
-	return cache_add(cp, 0, address, access_type, latency);
+	return latency + M_miss_penalty;
 }
 
   latency += cp[cache_index]->mem_latency;
@@ -76,8 +75,9 @@ if (cp[index] == NULL)
   tag = block_address / cp[cache_index]->nsets;
   index = block_address - (tag * cp[cache_index]->nsets);
 
+  /* look for the requested block */
   for (i = 0; i < cp[cache_index]->assoc; i++)
-  { /* look for the requested block */
+  { 
     if (cp[cache_index]->blocks[index][i].tag == tag && cp[cache_index]->blocks[index][i].valid == 1)
     {
       updateLRU(cp[cache_index], index, i);
@@ -87,19 +87,10 @@ if (cp[index] == NULL)
     }
   }
 
-  return cache_access(cp, cache_index++, address, access_type, latency);
-}
+  /*data was not found*/
 
-int cache_add(struct cache_t **cp, int cache_index, unsigned long address, int access_type, int latency)
-{
-  
-  if (cp[cache_index] == NULL)	// got to memory, base case
-  	return latency;
-
-
-  latency += cp[cache_index]->mem_latency;	// need to add latency of cache 
-  
-  /* a cache miss, check for empty blocks or evict */
+  /*find a block to write to*/
+  /*check for empty blocks*/
   for (way = 0; way < cp[cache_index]->assoc; way++) /* look for an invalid entry */
     if (cp[cache_index]->blocks[index][way].valid == 0)
     {
@@ -111,7 +102,11 @@ int cache_add(struct cache_t **cp, int cache_index, unsigned long address, int a
         latency += M_miss_penalty;	// if write miss, update memory
       return latency; /* an invalid entry is available*/
     }
+  /*Couldn't find an empty block*/
 
+  /*find least recently used block and evict*/
+  
+  /*gets the least recently used block*/
   max = cp[cache_index]->blocks[index][0].LRU; /* find the LRU block */
   way = 0;
 
@@ -121,17 +116,50 @@ int cache_add(struct cache_t **cp, int cache_index, unsigned long address, int a
       max = cp[cache_index]->blocks[index][i].LRU;		// update indices of LRU
       way = i;
     }
-    // if evicting from L2, must search both L1s -> don't evict if block is in either
-  if (cp[cache_index]->blocks[index][way].dirty == 1)	// Write back into memory if dirty bit == 1
-    latency += M_miss_penalty; 							// add memory latency for writing new block
-  cp[cache_index]->blocks[index][way].tag = tag;		// update tag
-  updateLRU(cp[cache_index], index, way);				// update LRU
-  cp[cache_index]->blocks[index][i].dirty = 0;			// reset dirty bit
-  if (access_type == 1)
-  {
-  	// TODO compute address of evicted block, use to add to next level, carry dirty bit across
-  	cp[cache_index]->blocks[index][i].dirty = 1;		// if writing, update dirty bit
-  	return cache_add(cp, cache_index++, address, access_type, latency);
+  /*end of gets the least recently used block*/
+
+  // if evicting from L2, must search both L1s -> don't evict if block is in either
+  if (cp[cache_index]){}
+
+  /*end of check*/
+  
+  /*we can evict this block*/
+  if (cp[cache_index]->blocks[index][way].dirty == 1)	{  // Write back into memory if dirty bit == 1
+    int evicted_address = index + cp[cache_index]->blocks[index][way].tag * cp[cache_index]->nsets;
+    latency += cache_write_back(cp, cache_index++, evicted_address, access_type);
+  }     
+
+  /*go down and "find" the data that we need to write to the block we just cleared*/
+  latency = cache_access(cp, cache_index++, address, access_type, latency);
+
+  /*write to the block we cleared out*/
+  // add memory latency for writing new block
+  cp[cache_index]->blocks[index][way].tag = tag;		    // update tag
+  updateLRU(cp[cache_index], index, way);			        	// update LRU
+  cp[cache_index]->blocks[index][i].dirty = 0;			    // reset dirty bit
+
+  return cache_access(cp, cache_index++, address, access_type, latency);
+}
+
+int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address)
+{
+  if (cp[cache_index] == NULL){
+    return M_miss_penalty;
   }
-    
+
+  int block_address = (evicted_address / cp[cache_index]->blocksize);
+  int tag = block_address / cp[cache_index]->nsets;
+  int index = block_address - (tag * cp[cache_index]->nsets);  
+
+  for (int i = 0; i < cp[cache_index]->assoc; i++)
+  { 
+    if (cp[cache_index]->blocks[index][i].tag == tag && cp[cache_index]->blocks[index][i].valid == 1)
+    {
+      updateLRU(cp[cache_index], index, i);
+      
+      // write back to the block
+      cp[cache_index]->blocks[index][i].dirty = 1;	
+    }
+  }
+  return cp[cache_index]->mem_latency;
 }
