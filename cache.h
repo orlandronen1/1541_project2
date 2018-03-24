@@ -55,6 +55,8 @@ int updateLRU(struct cache_t *cp, int index, int way)
   cp->blocks[index][way].LRU = 0;
 }
 
+int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address);
+
 int cache_access(struct cache_t **cp, int cache_index, unsigned long address, int access_type, int latency)
 {
   int i;
@@ -107,6 +109,12 @@ if (cp[index] == NULL)
   /*find least recently used block and evict*/
   
   /*gets the least recently used block*/
+  
+  /* Suggested code for LRU: Use qsort to create a sorted array of LRUs
+    qsort(some_copy_array, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)*/
+
+  
+
   max = cp[cache_index]->blocks[index][0].LRU; /* find the LRU block */
   way = 0;
 
@@ -140,6 +148,8 @@ if (cp[index] == NULL)
 
   return cache_access(cp, cache_index++, address, access_type, latency);
 }
+
+
 
 int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address)
 {
