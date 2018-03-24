@@ -67,37 +67,8 @@ int cache_access(struct cache_t **cp, int cache_index, unsigned long address, in
 
 if (cp[index] == NULL) 
 {
-  latency += M_miss_penalty;	// need to add latency of memory for writing new block
-  
-  /* a cache miss, check for empty blocks or evict */
-  for (way = 0; way < cp[cache_index]->assoc; way++) /* look for an invalid entry */
-    if (cp[cache_index]->blocks[index][way].valid == 0)
-    {
-      cp[cache_index]->blocks[index][way].valid = 1;	// valid memory
-      cp[cache_index]->blocks[index][way].tag = tag;	// update tag
-      updateLRU(cp[cache_index], index, way);			// update LRU
-      cp[cache_index]->blocks[index][way].dirty = 0;	// reset dirty bit
-      if (access_type == 1)
-        cp[cache_index]->blocks[index][way].dirty = 1;	// if writing, update dirty bit
-      return latency; /* an invalid entry is available*/
-    }
-
-  max = cp[cache_index]->blocks[index][0].LRU; /* find the LRU block */
-  way = 0;
-  for (i = 1; i < cp[cache_index]->assoc; i++)			// look through cache for LRU block
-    if (cp[cache_index]->blocks[index][i].LRU > max)
-    {
-      max = cp[cache_index]->blocks[index][i].LRU;		// update indices of LRU
-      way = i;
-    }
-  if (cp[cache_index]->blocks[index][way].dirty == 1)	// Write back into memory if dirty bit == 1
-    latency += M_miss_penalty; 							// add memory latency for writing new block
-  cp[cache_index]->blocks[index][way].tag = tag;		// update tag
-  updateLRU(cp[cache_index], index, way);				// update LRU
-  cp[cache_index]->blocks[index][i].dirty = 0;			// reset dirty bit
-  if (access_type == 1)
-    cp[cache_index]->blocks[index][i].dirty = 1;		// if writing, update dirty bit
-  return latency;
+	latency += M_miss_penalty;
+	return cache_add(cp, 0, address, access_type, latency);
 }
 
   latency += cp[cache_index]->mem_latency;
@@ -119,8 +90,48 @@ if (cp[index] == NULL)
   return cache_access(cp, cache_index++, address, access_type, latency);
 }
 
-int cache_evict(struct cache_t **cp, int cache_index, unsigned long address, int access_type, int latency)
+int cache_add(struct cache_t **cp, int cache_index, unsigned long address, int access_type, int latency)
 {
+  
+  if (cp[cache_index] == NULL)	// got to memory, base case
+  	return latency;
 
-	return 0;
+
+  latency += cp[cache_index]->mem_latency;	// need to add latency of cache 
+  
+  /* a cache miss, check for empty blocks or evict */
+  for (way = 0; way < cp[cache_index]->assoc; way++) /* look for an invalid entry */
+    if (cp[cache_index]->blocks[index][way].valid == 0)
+    {
+      cp[cache_index]->blocks[index][way].valid = 1;	// valid memory
+      cp[cache_index]->blocks[index][way].tag = tag;	// update tag
+      updateLRU(cp[cache_index], index, way);			// update LRU
+      cp[cache_index]->blocks[index][way].dirty = 0;	// reset dirty bit
+      if (access_type == 1)
+        latency += M_miss_penalty;	// if write miss, update memory
+      return latency; /* an invalid entry is available*/
+    }
+
+  max = cp[cache_index]->blocks[index][0].LRU; /* find the LRU block */
+  way = 0;
+
+  for (i = 1; i < cp[cache_index]->assoc; i++)			// look through cache for LRU block
+    if (cp[cache_index]->blocks[index][i].LRU > max)
+    {
+      max = cp[cache_index]->blocks[index][i].LRU;		// update indices of LRU
+      way = i;
+    }
+    // if evicting from L2, must search both L1s -> don't evict if block is in either
+  if (cp[cache_index]->blocks[index][way].dirty == 1)	// Write back into memory if dirty bit == 1
+    latency += M_miss_penalty; 							// add memory latency for writing new block
+  cp[cache_index]->blocks[index][way].tag = tag;		// update tag
+  updateLRU(cp[cache_index], index, way);				// update LRU
+  cp[cache_index]->blocks[index][i].dirty = 0;			// reset dirty bit
+  if (access_type == 1)
+  {
+  	// TODO compute address of evicted block, use to add to next level, carry dirty bit across
+  	cp[cache_index]->blocks[index][i].dirty = 1;		// if writing, update dirty bit
+  	return cache_add(cp, cache_index++, address, access_type, latency);
+  }
+    
 }
