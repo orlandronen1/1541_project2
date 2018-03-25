@@ -10,6 +10,15 @@
 #include <inttypes.h>
 #include <arpa/inet.h> // change to original
 #include "CPU.h"
+
+unsigned int I_accesses = 0;
+unsigned int I_misses = 0;
+unsigned int D_read_accesses = 0;
+unsigned int D_read_misses = 0;
+unsigned int D_write_accesses = 0; 
+unsigned int D_write_misses = 0;
+unsigned int M_miss_penalty = 0;
+
 #include "cache.h"
 
 int main(int argc, char **argv)
@@ -42,7 +51,7 @@ int main(int argc, char **argv)
     unsigned int t_Addr = 0;
 
     unsigned int cycle_number = 0;
-    int delays = 0;
+    int branch_predict_delay = 0;
 
     if (argc == 1)
     {
@@ -65,7 +74,7 @@ int main(int argc, char **argv)
     unsigned int S_assoc = 4;
     unsigned int bsize = 16;
     unsigned int S_miss_penalty = 1;
-    unsigned int miss_penalty = 80;
+    M_miss_penalty = 80;
     unsigned int latency;
 
     FILE *cf = fopen("cache_config.txt", "r");
@@ -79,6 +88,9 @@ int main(int argc, char **argv)
     DL1_cache = cache_create(D_size, bsize, D_assoc, 0);
     SL2_cache = cache_create(D_size, bsize, D_assoc, S_miss_penalty);
     
+    struct cache_t *instr_cache_list[4] = { IL1_cache, SL2_cache, NULL, DL1_cache };
+    struct cache_t *data_cache_list[4] = { DL1_cache, SL2_cache, NULL, IL1_cache };
+
     // THIS MUST BE CHANGED TO CHANGE THE SIZE OF THE PREDICTION TABLE
     set_up_table(128);
 
@@ -94,25 +106,32 @@ int main(int argc, char **argv)
 
     trace_init();
 
+    int instr_mem_delay = 0;
+    int data_mem_delay = 0;
+
     while (1)
     {
+        long instr_block_address = stages[IF1].PC / bsize;
+        instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
+
+        if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
+        {
+            int data_block_addr = stages[MEM1].Addr / bsize;
+            data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0)
+        }      
 
         //printf("Cycle number: %d\n", cycle_number);
         /* hazard detection */
         int hazard_detected = hazard_detect(stages, prediction_mode, &out);
         //printf("hazard detection done\n");
         if (hazard_detected == hz_CTRL)
-            delays = 3;
+            branch_predict_delay = 3;
+
         /* branch prediction*/
         branch_predict(stages, prediction_mode);
         //printf("branch prediction done\n");
-        if (delays > 0)
-        {
-            push_stages_from(stages, EX, out);
-            delays--;
-        }
-
-        else if (hazard_detected == 0)
+        
+        if (hazard_detected == 0 && instr_mem_delay == 0 && data_mem_delay == 0)
         {
             out = stages[WB];
             for (int i = WB; i > 0; i--)
@@ -141,6 +160,24 @@ int main(int argc, char **argv)
                 t_PC = tr_entry->PC;
                 t_Addr = tr_entry->Addr;
                 stages[IF1] = *tr_entry;
+            }
+        }
+        else
+        {
+            if (data_mem_delay > 0)
+            {
+                push_stages_from(stages, MEM1, out);
+                data_mem_delay--;
+            }
+            else if (branch_predict_delay > 0)
+            {
+                push_stages_from(stages, EX, out);
+                branch_predict_delay--;
+            }            
+            else if (instr_mem_delay > 0)
+            {
+                push_stages_from(stages, IF1, out);
+                instr_mem_delay--;
             }
         }
         cycle_number++;
