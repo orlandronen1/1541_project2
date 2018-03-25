@@ -27,7 +27,7 @@ struct cache_t *cache_create(int size, int blocksize, int assoc, int mem_latency
   int i, nblocks, nsets;
   struct cache_t *C = (struct cache_t *)calloc(1, sizeof(struct cache_t));
 
-  nblocks = size * 1024 / blocksize; // number of blocks in the cache
+  nblocks = (size * 1024) / blocksize; // number of blocks in the cache
   nsets = nblocks / assoc;           // number of sets (entries) in the cache
   C->blocksize = blocksize;
   C->nsets = nsets;
@@ -67,7 +67,7 @@ int cache_access(struct cache_t **cp, int cache_index, unsigned long address, in
   int max;
 
 
-if (cp[index] == NULL) 
+if (cp[cache_index] == NULL) 
 {
 	return latency + M_miss_penalty;
 }
@@ -136,7 +136,7 @@ if (cp[index] == NULL)
   /*we can evict this block*/
   if (cp[cache_index]->blocks[index][way].dirty == 1)	{  // Write back into memory if dirty bit == 1
     int evicted_address = index + cp[cache_index]->blocks[index][way].tag * cp[cache_index]->nsets;
-    latency += cache_write_back(cp, cache_index++, evicted_address, access_type);
+    latency += cache_write_back(cp, cache_index++, evicted_address);
   }     
 
   /*go down and "find" the data that we need to write to the block we just cleared*/
