@@ -115,21 +115,9 @@ int main(int argc, char **argv)
         long instr_block_address = stages[IF1].PC / bsize;
         instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
 
-        if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
-        {
-            int data_block_addr = stages[MEM1].Addr / bsize;
-            data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0);
-        }
-
         getchar();
-        if (data_mem_delay > 0)
-        {
-            //push_stages_from(stages, MEM2, out);
-            cycle_number += data_mem_delay;
-            data_mem_delay = 0;
-            printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
-        }
-        else if (instr_mem_delay > 0)
+        
+        if (instr_mem_delay > 0)
         {
             //push_stages_from(stages, IF2, out);
             cycle_number += instr_mem_delay;
@@ -156,6 +144,19 @@ int main(int argc, char **argv)
         }
         else if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
         {
+            if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
+            {
+                int data_block_addr = stages[MEM1].Addr / bsize;
+                data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0);
+            }
+            if (data_mem_delay > 0)
+            {
+                //push_stages_from(stages, MEM2, out);
+                cycle_number += data_mem_delay;
+                data_mem_delay = 0;
+                printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
+            }
+
             out = stages[WB];
 
             for (int i = WB; i > 0; i--)
@@ -188,7 +189,7 @@ int main(int argc, char **argv)
             cycle_number++;
         }
 
-        print_stages(stages);
+        //print_stages(stages);
         if (trace_view_on && out.type != ti_EMPTY)
         { /* print the executed instruction if trace_view_on=1 */
             switch (out.type)

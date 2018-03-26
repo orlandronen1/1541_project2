@@ -66,11 +66,11 @@ int cache_access(struct cache_t **cp, int cache_index, unsigned long address, in
   int way;
   int max;
 
-  //printf("cache %d, %d; addr: %lu\n", cache_index, access_type, address);
+  printf("cache %d, %d; addr: %lu\n", cache_index, access_type, address);
 
 if (cp[cache_index] == NULL) 
 {
-  //printf("mem\n\n");
+  printf("mem\n\n");
 	return latency + M_miss_penalty;
 }
 
@@ -85,10 +85,15 @@ if (cp[cache_index] == NULL)
     //printf("%d, %d\n", cp[cache_index]->blocks[index][i].tag == tag, cp[cache_index]->blocks[index][i].valid == 1);
     if (cp[cache_index]->blocks[index][i].tag == tag && cp[cache_index]->blocks[index][i].valid == 1)
     {
-      //printf("hit\n");
+      printf("hit\n");
       updateLRU(cp[cache_index], index, i);
+      printf("dirty: %d", cp[cache_index]->blocks[index][i].dirty)
       if (access_type == 1)
+      {
+        printf("Write hit");
         cp[cache_index]->blocks[index][i].dirty = 1;	// if writing, update dirty bit
+      }
+        
       return (latency); /* a cache hit */
     }
   }
@@ -145,7 +150,7 @@ if (cp[cache_index] == NULL)
   }     
 
   /*go down and "find" the data that we need to write to the block we just cleared*/
-  //printf("Next level");
+  printf("Next level");
   latency = cache_access(cp, cache_index + 1, address, access_type, latency);
 
   /*write to the block we cleared out*/
