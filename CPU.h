@@ -71,6 +71,42 @@ static int trace_buf_end;
 static struct trace_item *trace_buf;
 static FILE *out_fd;
 
+void print_stages(struct trace_item stages[]){
+    for (int i = 0; i < 7; i++){
+        printf("%d", i);
+        switch (stages[i].type){
+                case ti_RTYPE:
+                    printf("R ");
+                    break;
+                case ti_ITYPE:
+                    printf("I ");
+                    break;
+                case ti_LOAD:
+                    printf("L ");
+                    break;
+                case ti_STORE:
+                    printf("S ");
+                    break;
+                case ti_BRANCH:
+                    printf("B ");
+                    break;
+                case ti_JTYPE:
+                    printf("J ");
+                    break;
+                case ti_SPECIAL:
+                    printf("S ");
+                    break;
+                case ti_JRTYPE:
+                    printf("JR ");
+                    break;    
+                default:
+                    printf("N ");
+        }     
+    }
+    printf("\n"); 
+    getchar();        
+}
+
 int is_big_endian(void)
 {
 	union {

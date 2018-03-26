@@ -135,9 +135,25 @@ int main(int argc, char **argv)
         /* branch prediction*/
         branch_predict(stages, prediction_mode);
         //printf("branch prediction done\n");
-        printf("%d", hazard_detected);
+        //printf("%d", branch_predict_delay);
 
-        if (hazard_detected == 0 )//&& instr_mem_delay == 0 && data_mem_delay == 0)
+        if (branch_predict_delay > 0)
+        {
+            push_stages_from(stages, EX, out);
+            branch_predict_delay--;
+        }            
+        else if (data_mem_delay > 0)
+        {
+            //push_stages_from(stages, MEM2, out);
+            data_mem_delay--;
+            cycle_number++;
+        }   
+        else if (instr_mem_delay > 0)
+        {
+            //push_stages_from(stages, IF2, out);
+            instr_mem_delay--;
+        }
+        else if (hazard_detected == 0)//&& instr_mem_delay == 0 && data_mem_delay == 0)
         {
             out = stages[WB];
 
@@ -170,29 +186,9 @@ int main(int argc, char **argv)
             }
             cycle_number++;
         }
-        else
-        {
-            if (data_mem_delay > 0)
-            {
-                push_stages_from(stages, MEM2, out);
-                data_mem_delay--;
-                cycle_number++;
-            }
-            else if (branch_predict_delay > 0)
-            {
-                //push_stages_from(stages, MEM1, out);
-                branch_predict_delay--;
-            }            
-            else if (instr_mem_delay > 0)
-            {
-                //push_stages_from(stages, IF2, out);
-                instr_mem_delay--;
-            }
-        }
         
-
         //print_stages(stages);
-        if (branch_predict_delay > 0 || instr_mem_delay > 0)
+        if (instr_mem_delay == 0 && data_mem_delay == 0)
         {
             if (trace_view_on && out.type != ti_EMPTY)
             { /* print the executed instruction if trace_view_on=1 */
