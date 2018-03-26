@@ -15,7 +15,7 @@ unsigned int I_accesses = 0;
 unsigned int I_misses = 0;
 unsigned int D_read_accesses = 0;
 unsigned int D_read_misses = 0;
-unsigned int D_write_accesses = 0; 
+unsigned int D_write_accesses = 0;
 unsigned int D_write_misses = 0;
 unsigned int M_miss_penalty = 0;
 
@@ -29,9 +29,8 @@ int main(int argc, char **argv)
         .sReg_b = 255,
         .dReg = 255,
         .PC = 0,
-        .Addr = 0
-    };
-    
+        .Addr = 0};
+
     struct trace_item stages[7] = {empty, empty, empty, empty, empty, empty, empty};
 
     struct cache_t *IL1_cache, *DL1_cache, *SL2_cache;
@@ -52,7 +51,6 @@ int main(int argc, char **argv)
 
     printf("yay");
 
-
     unsigned int cycle_number = 0;
     int branch_predict_delay = 0;
 
@@ -67,8 +65,6 @@ int main(int argc, char **argv)
     prediction_mode = atoi(argv[2]);
     if (argc == 4)
         trace_view_on = atoi(argv[3]);
-
-
 
     // here you should extract the cache parameters from the configuration file
     unsigned int I_size = 2;
@@ -92,9 +88,9 @@ int main(int argc, char **argv)
     IL1_cache = cache_create(I_size, bsize, I_assoc, 0);
     DL1_cache = cache_create(D_size, bsize, D_assoc, 0);
     SL2_cache = cache_create(D_size, bsize, D_assoc, S_miss_penalty);
-    
-    struct cache_t *instr_cache_list[4] = { IL1_cache, SL2_cache, NULL, DL1_cache };
-    struct cache_t *data_cache_list[4] = { DL1_cache, SL2_cache, NULL, IL1_cache };
+
+    struct cache_t *instr_cache_list[4] = {IL1_cache, SL2_cache, NULL, DL1_cache};
+    struct cache_t *data_cache_list[4] = {DL1_cache, SL2_cache, NULL, IL1_cache};
 
     // THIS MUST BE CHANGED TO CHANGE THE SIZE OF THE PREDICTION TABLE
     set_up_table(128);
@@ -105,7 +101,7 @@ int main(int argc, char **argv)
 
     if (!trace_fd)
     {
-        fprintf(stdout, "\ntrace file %s not opened.\n\n", trace_file_name);
+        fprintf(stdout, "\ntrace file %s not found.\n\n", trace_file_name);
         exit(0);
     }
 
@@ -115,15 +111,31 @@ int main(int argc, char **argv)
     int data_mem_delay = 0;
     while (1)
     {
+        getchar();
+        long instr_block_address = stages[IF1].PC / bsize;
+        instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
 
-        // long instr_block_address = stages[IF1].PC / bsize;
-        // instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
+        if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
+        {
+            int data_block_addr = stages[MEM1].Addr / bsize;
+            data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0);
+        }
 
-        // if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
-        // {
-        //     int data_block_addr = stages[MEM1].Addr / bsize;
-        //     data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0);
-        // }      
+        getchar();
+        if (data_mem_delay > 0)
+        {
+            //push_stages_from(stages, MEM2, out);
+            cycle_number += data_mem_delay;
+            data_mem_delay = 0;
+            printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
+        }
+        else if (instr_mem_delay > 0)
+        {
+            //push_stages_from(stages, IF2, out);
+            cycle_number += instr_mem_delay;
+            data_mem_delay = 0;
+            printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
+        }
 
         //printf("Cycle number: %d\n", cycle_number);
         /* hazard detection */
@@ -135,25 +147,14 @@ int main(int argc, char **argv)
         /* branch prediction*/
         branch_predict(stages, prediction_mode);
         //printf("branch prediction done\n");
-        //printf("%d", branch_predict_delay);
+        //printf("H: %d\n", hazard_detected);
 
         if (branch_predict_delay > 0)
         {
             push_stages_from(stages, EX, out);
             branch_predict_delay--;
-        }            
-        else if (data_mem_delay > 0)
-        {
-            //push_stages_from(stages, MEM2, out);
-            data_mem_delay--;
-            cycle_number++;
-        }   
-        else if (instr_mem_delay > 0)
-        {
-            //push_stages_from(stages, IF2, out);
-            instr_mem_delay--;
         }
-        else if (hazard_detected == 0)//&& instr_mem_delay == 0 && data_mem_delay == 0)
+        else if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
         {
             out = stages[WB];
 
@@ -186,54 +187,47 @@ int main(int argc, char **argv)
             }
             cycle_number++;
         }
-        
-        //print_stages(stages);
-        if (instr_mem_delay == 0 && data_mem_delay == 0)
-        {
-            if (trace_view_on && out.type != ti_EMPTY)
-            { /* print the executed instruction if trace_view_on=1 */
-                switch (out.type)
-                {
-                case ti_NOP:
-                    printf("[cycle %d] NOP\n:", cycle_number);
-                    break;
-                case ti_RTYPE:
-                    printf("[cycle %d] RTYPE:", cycle_number);
-                    printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(dReg: %d) \n", out.PC, out.sReg_a, out.sReg_b, out.dReg);
-                    break;
-                case ti_ITYPE:
-                    printf("yay[cycle %d] ITYPE:", cycle_number);
-                    printf(" (PC: %x)(sReg_a: %d)(dReg: %d)(addr: %x)\n", out.PC, out.sReg_a, out.dReg, out.Addr);
-                    break;
-                case ti_LOAD:
-                    printf("[cycle %d] LOAD:", cycle_number);
-                    printf(" (PC: %x)(sReg_a: %d)(dReg: %d)(addr: %x)\n", out.PC, out.sReg_a, out.dReg, out.Addr);
-                    break;
-                case ti_STORE:
-                    printf("[cycle %d] STORE:", cycle_number);
-                    printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(addr: %x)\n", out.PC, out.sReg_a, out.sReg_b, out.Addr);
-                    break;
-                case ti_BRANCH:
-                    printf("[cycle %d] BRANCH:", cycle_number);
-                    printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(addr: %x)\n", out.PC, out.sReg_a, out.sReg_b, out.Addr);
-                    break;
-                case ti_JTYPE:
-                    printf("[cycle %d] JTYPE:", cycle_number);
-                    printf(" (PC: %x)(addr: %x)\n", out.PC, out.Addr);
-                    break;
-                case ti_SPECIAL:
-                    printf("[cycle %d] SPECIAL:\n", cycle_number);
-                    break;
-                case ti_JRTYPE:
-                    printf("[cycle %d] JRTYPE:", cycle_number);
-                    printf(" (PC: %x) (sReg_a: %d)(addr: %x)\n", out.PC, out.dReg, out.Addr);
-                    break;
-                }
+
+        print_stages(stages);
+        if (trace_view_on && out.type != ti_EMPTY)
+        { /* print the executed instruction if trace_view_on=1 */
+            switch (out.type)
+            {
+            case ti_NOP:
+                printf("[cycle %d] NOP\n:", cycle_number);
+                break;
+            case ti_RTYPE:
+                printf("[cycle %d] RTYPE:", cycle_number);
+                printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(dReg: %d) \n", out.PC, out.sReg_a, out.sReg_b, out.dReg);
+                break;
+            case ti_ITYPE:
+                printf("yay[cycle %d] ITYPE:", cycle_number);
+                printf(" (PC: %x)(sReg_a: %d)(dReg: %d)(addr: %x)\n", out.PC, out.sReg_a, out.dReg, out.Addr);
+                break;
+            case ti_LOAD:
+                printf("[cycle %d] LOAD:", cycle_number);
+                printf(" (PC: %x)(sReg_a: %d)(dReg: %d)(addr: %x)\n", out.PC, out.sReg_a, out.dReg, out.Addr);
+                break;
+            case ti_STORE:
+                printf("[cycle %d] STORE:", cycle_number);
+                printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(addr: %x)\n", out.PC, out.sReg_a, out.sReg_b, out.Addr);
+                break;
+            case ti_BRANCH:
+                printf("[cycle %d] BRANCH:", cycle_number);
+                printf(" (PC: %x)(sReg_a: %d)(sReg_b: %d)(addr: %x)\n", out.PC, out.sReg_a, out.sReg_b, out.Addr);
+                break;
+            case ti_JTYPE:
+                printf("[cycle %d] JTYPE:", cycle_number);
+                printf(" (PC: %x)(addr: %x)\n", out.PC, out.Addr);
+                break;
+            case ti_SPECIAL:
+                printf("[cycle %d] SPECIAL:\n", cycle_number);
+                break;
+            case ti_JRTYPE:
+                printf("[cycle %d] JRTYPE:", cycle_number);
+                printf(" (PC: %x) (sReg_a: %d)(addr: %x)\n", out.PC, out.dReg, out.Addr);
+                break;
             }
-        }
-        else
-        {
-            printf("Pipeline is frozen (Instruction Fetch Delay: %d, Data Access Delay: %d", instr_mem_delay, data_mem_delay);
         }
     }
 

@@ -73,7 +73,7 @@ static FILE *out_fd;
 
 void print_stages(struct trace_item stages[]){
     for (int i = 0; i < 7; i++){
-        printf("%d", i);
+        //printf("%d", i);
         switch (stages[i].type){
                 case ti_RTYPE:
                     printf("R ");

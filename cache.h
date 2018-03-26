@@ -66,9 +66,11 @@ int cache_access(struct cache_t **cp, int cache_index, unsigned long address, in
   int way;
   int max;
 
+  //printf("cache %d, %d; addr: %lu\n", cache_index, access_type, address);
 
 if (cp[cache_index] == NULL) 
 {
+  //printf("mem\n\n");
 	return latency + M_miss_penalty;
 }
 
@@ -80,8 +82,10 @@ if (cp[cache_index] == NULL)
   /* look for the requested block */
   for (i = 0; i < cp[cache_index]->assoc; i++)
   { 
+    //printf("%d, %d\n", cp[cache_index]->blocks[index][i].tag == tag, cp[cache_index]->blocks[index][i].valid == 1);
     if (cp[cache_index]->blocks[index][i].tag == tag && cp[cache_index]->blocks[index][i].valid == 1)
     {
+      //printf("hit\n");
       updateLRU(cp[cache_index], index, i);
       if (access_type == 1)
         cp[cache_index]->blocks[index][i].dirty = 1;	// if writing, update dirty bit
@@ -96,13 +100,14 @@ if (cp[cache_index] == NULL)
   for (way = 0; way < cp[cache_index]->assoc; way++) /* look for an invalid entry */
     if (cp[cache_index]->blocks[index][way].valid == 0)
     {
+      printf("empty block found\n");
       cp[cache_index]->blocks[index][way].valid = 1;	// valid memory
       cp[cache_index]->blocks[index][way].tag = tag;	// update tag
       updateLRU(cp[cache_index], index, way);			// update LRU
       cp[cache_index]->blocks[index][way].dirty = 0;	// reset dirty bit
-      if (access_type == 1)
-        latency += M_miss_penalty;	// if write miss, update memory
-      return latency; /* an invalid entry is available*/
+      // if (access_type == 1)
+      //   latency += cache_write_back(cp, cache_index++, evicted_address);	// if write miss, write back 
+      break;     
     }
   /*Couldn't find an empty block*/
 
@@ -129,18 +134,19 @@ if (cp[cache_index] == NULL)
   /*end of gets the least recently used block*/
 
   // if evicting from L2, must search both L1s -> don't evict if block is in either
-  if (cp[cache_index]){}
+  //if (cp[cache_index]){}
 
   /*end of check*/
   
   /*we can evict this block*/
   if (cp[cache_index]->blocks[index][way].dirty == 1)	{  // Write back into memory if dirty bit == 1
     int evicted_address = index + cp[cache_index]->blocks[index][way].tag * cp[cache_index]->nsets;
-    latency += cache_write_back(cp, cache_index++, evicted_address);
+    latency += cache_write_back(cp, cache_index + 1, evicted_address);
   }     
 
   /*go down and "find" the data that we need to write to the block we just cleared*/
-  latency = cache_access(cp, cache_index++, address, access_type, latency);
+  //printf("Next level");
+  latency = cache_access(cp, cache_index + 1, address, access_type, latency);
 
   /*write to the block we cleared out*/
   // add memory latency for writing new block
@@ -148,10 +154,8 @@ if (cp[cache_index] == NULL)
   updateLRU(cp[cache_index], index, way);			        	// update LRU
   cp[cache_index]->blocks[index][i].dirty = 0;			    // reset dirty bit
 
-  return cache_access(cp, cache_index++, address, access_type, latency);
+  return latency;
 }
-
-
 
 int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address)
 {
