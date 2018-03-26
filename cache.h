@@ -121,8 +121,53 @@ if (cp[cache_index] == NULL)
   /*gets the least recently used block*/
   
   /* Suggested code for LRU: Use qsort to create a sorted array of LRUs
-    qsort(some_copy_array, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)
-    int compare_function(const void * p1, const void * p1) {}
+    // copy array
+    struct cache_blk_t *copy = (struct cache_blk_t *)calloc(cp[cache_index]->assoc, sizeof(struct cache_blk_t));
+
+    for (j = 0; j < cp[cache_index]->assoc; j++)
+    {
+      copy[j]->tag = cp[cache_index]->blocks[index][j].tag;
+      copy[j]->valid = cp[cache_index]->blocks[index][j].valid;
+      copy[j]->dirty = cp[cache_index]->blocks[index][j].dirty;
+      copy[j]->LRU = cp[cache_index]->blocks[index][j].LRU;
+    }
+
+    qsort(copy, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)
+    int compare_function(const void * p1, const void * p2) 
+    {
+      return ( (cache_blk_t *)p1->LRU - (cache_blk_t *)p2->LRU);
+    }
+
+    // check both L1's to see if LRU is in either. if it is, go to next LRU
+    int found = 0;
+    int fi, fblock_address, ftag, findex;
+    for (fi = 0; fi < cp[cache_index]->assoc && found = 0; fi++)
+    {
+      //set found = 0
+      //search Icache
+      fblock_address = (address / cp[0]->blocksize);
+      ftag = block_address / cp[0]->nsets;
+      findex = block_address - (ftag * cp[0]->nsets);
+      for (int fj = 0; fj < cp[0]->assoc; fj++)
+      {
+        if (cp[0]->blocks[findex][fj].tag == ftag) 
+          found = 1;
+      }
+      //search Dcache
+      fblock_address = (address / cp[3]->blocksize);
+      ftag = block_address / cp[3]->nsets;
+      findex = block_address - (ftag * cp[3]->nsets);
+      for (int fj = 0; fj < cp[3]->assoc; fj++)
+      {
+        if (cp[3]->blocks[findex][fj].tag == ftag) 
+          found = 1;
+      }
+
+      //if block is found in either, set found to 1
+      //if found is still 0 after checking both, for loop ends and can use the block in copy[fi] -> have to find it in the cache again, though
+    }
+
+    // after done w/ copy, free(copy)
     */
 
   
