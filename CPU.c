@@ -24,7 +24,7 @@ unsigned int M_miss_penalty = 0;
 int main(int argc, char **argv)
 {
     const struct trace_item empty = {
-        .type = ti_EMPTY,
+        .type = ti_EMPTY + 1,
         .sReg_a = 255,
         .sReg_b = 255,
         .dReg = 255,
@@ -87,7 +87,7 @@ int main(int argc, char **argv)
 
     IL1_cache = cache_create(I_size, bsize, I_assoc, 0);
     DL1_cache = cache_create(D_size, bsize, D_assoc, 0);
-    SL2_cache = cache_create(D_size, bsize, D_assoc, S_miss_penalty);
+    SL2_cache = cache_create(S_size, bsize, S_assoc, S_miss_penalty);
 
     struct cache_t *instr_cache_list[4] = {IL1_cache, SL2_cache, NULL, DL1_cache};
     struct cache_t *data_cache_list[4] = {DL1_cache, SL2_cache, NULL, IL1_cache};
@@ -111,26 +111,12 @@ int main(int argc, char **argv)
     int data_mem_delay = 0;
     while (1)
     {
-        getchar();
-        long instr_block_address = stages[IF1].PC / bsize;
-        instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
-
-        getchar();
-        
-        if (instr_mem_delay > 0)
-        {
-            //push_stages_from(stages, IF2, out);
-            cycle_number += instr_mem_delay;
-            data_mem_delay = 0;
-            printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
-        }
-
         //printf("Cycle number: %d\n", cycle_number);
         /* hazard detection */
-        int hazard_detected = hazard_detect(stages, prediction_mode, &out);
+        //int hazard_detected = hazard_detect(stages, prediction_mode, &out);
         //printf("hazard detection done\n");
-        if (hazard_detected == hz_CTRL)
-            branch_predict_delay = 3;
+        // if (hazard_detected == hz_CTRL)
+        //     branch_predict_delay = 3;
 
         /* branch prediction*/
         branch_predict(stages, prediction_mode);
@@ -142,20 +128,23 @@ int main(int argc, char **argv)
             push_stages_from(stages, EX, out);
             branch_predict_delay--;
         }
-        else if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
+        else //if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
         {
+            getchar();
+            printf("%d", stages[MEM1].type);
             if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
             {
-                int data_block_addr = stages[MEM1].Addr / bsize;
-                data_mem_delay = cache_access(data_cache_list, 0, data_block_addr, (stages[MEM1].type == ti_STORE), 0);
+                int data_block_addr = stages[MEM1].Addr;
+                data_mem_delay = cache_access(data_cache_list, 0, data_block_addr * 1024, (stages[MEM1].type == ti_STORE), 0);
             }
             if (data_mem_delay > 0)
             {
                 //push_stages_from(stages, MEM2, out);
                 cycle_number += data_mem_delay;
-                data_mem_delay = 0;
                 printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
+                data_mem_delay = 0;
             }
+            getchar();
 
             out = stages[WB];
 
@@ -178,18 +167,32 @@ int main(int argc, char **argv)
             }
             else
             {
+                // getchar();
+                // long instr_block_address = stages[IF1].PC / bsize;
+                // instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
+
+                // getchar();
+                
+                // if (instr_mem_delay > 0)
+                // {
+                //     //push_stages_from(stages, IF2, out);
+                //     cycle_number += instr_mem_delay;
+                //     data_mem_delay = 0;
+                //     printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
+                // }
+
                 t_type = tr_entry->type;
                 t_sReg_a = tr_entry->sReg_a;
                 t_sReg_b = tr_entry->sReg_b;
                 t_dReg = tr_entry->dReg;
                 t_PC = tr_entry->PC;
                 t_Addr = tr_entry->Addr;
-                stages[IF1] = *tr_entry;
+                stages[IF1] = *tr_entry;                
             }
             cycle_number++;
         }
 
-        //print_stages(stages);
+        print_stages(stages);
         if (trace_view_on && out.type != ti_EMPTY)
         { /* print the executed instruction if trace_view_on=1 */
             switch (out.type)

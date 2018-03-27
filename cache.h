@@ -28,10 +28,12 @@ struct cache_t *cache_create(int size, int blocksize, int assoc, int mem_latency
   struct cache_t *C = (struct cache_t *)calloc(1, sizeof(struct cache_t));
 
   nblocks = (size * 1024) / blocksize; // number of blocks in the cache
+  //nblocks = (size) / blocksize;
   nsets = nblocks / assoc;           // number of sets (entries) in the cache
   C->blocksize = blocksize;
   C->nsets = nsets;
   C->assoc = assoc;
+  printf("%d, ", assoc);
   C->mem_latency = mem_latency;
 
   C->blocks = (struct cache_blk_t **)calloc(nsets, sizeof(struct cache_blk_t *));
@@ -44,18 +46,35 @@ struct cache_t *cache_create(int size, int blocksize, int assoc, int mem_latency
 }
 //------------------------------
 
+void print_slot(struct cache_blk_t *blocks, int assoc){
+  for (int i = 0; i < assoc; i++){
+    printf("(%d, %lu)", blocks[i].valid, blocks[i].tag);
+  }
+  printf("\n");
+}
+
+void print_slot_lru(struct cache_blk_t *blocks, int assoc){
+  for (int i = 0; i < assoc; i++){
+    printf("(%d, %d)", blocks[i].valid, blocks[i].LRU);
+  }
+  printf("\n");
+}
+
 int updateLRU(struct cache_t *cp, int index, int way)
 {
+  printf("update: ");
   int k;
   for (k = 0; k < cp->assoc; k++)
   {
-    if (cp->blocks[index][k].LRU < cp->blocks[index][way].LRU)
-      cp->blocks[index][k].LRU = cp->blocks[index][k].LRU + 1;
+    cp->blocks[index][k].LRU = cp->blocks[index][k].LRU + 1;
   }
   cp->blocks[index][way].LRU = 0;
+  //print_slot_lru( cp->blocks[index], cp->assoc);
 }
 
 int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address);
+
+
 
 int cache_access(struct cache_t **cp, int cache_index, unsigned long address, int access_type, int latency)
 {
@@ -73,11 +92,14 @@ if (cp[cache_index] == NULL)
   printf("mem\n\n");
 	return latency + M_miss_penalty;
 }
-
   latency += cp[cache_index]->mem_latency;
   block_address = (address / cp[cache_index]->blocksize);
   tag = block_address / cp[cache_index]->nsets;
   index = block_address - (tag * cp[cache_index]->nsets);
+
+  printf("index: %d, tag: %d\n", index, tag);
+
+  print_slot(cp[cache_index]->blocks[index], cp[cache_index]->assoc);
 
   /* look for the requested block */
   for (i = 0; i < cp[cache_index]->assoc; i++)
@@ -85,12 +107,12 @@ if (cp[cache_index] == NULL)
     //printf("%d, %d\n", cp[cache_index]->blocks[index][i].tag == tag, cp[cache_index]->blocks[index][i].valid == 1);
     if (cp[cache_index]->blocks[index][i].tag == tag && cp[cache_index]->blocks[index][i].valid == 1)
     {
-      printf("hit\n");
+      printf("hit");
       updateLRU(cp[cache_index], index, i);
-      printf("dirty: %d", cp[cache_index]->blocks[index][i].dirty)
+      //printf("dirty: %d", cp[cache_index]->blocks[index][i].dirty);
       if (access_type == 1)
       {
-        printf("Write hit");
+        //printf("Write hit");
         cp[cache_index]->blocks[index][i].dirty = 1;	// if writing, update dirty bit
       }
         
@@ -110,82 +132,86 @@ if (cp[cache_index] == NULL)
       cp[cache_index]->blocks[index][way].tag = tag;	// update tag
       updateLRU(cp[cache_index], index, way);			// update LRU
       cp[cache_index]->blocks[index][way].dirty = 0;	// reset dirty bit
-      // if (access_type == 1)
-      //   latency += cache_write_back(cp, cache_index++, evicted_address);	// if write miss, write back 
-      break;     
+       
+      goto get_data;     
     }
   /*Couldn't find an empty block*/
 
   /*find least recently used block and evict*/
   
   /*gets the least recently used block*/
+  printf("evict");
+  struct cache_blk_t *copy = (struct cache_blk_t *)calloc(cp[cache_index]->assoc, sizeof(struct cache_blk_t));
+
+  for (int j = 0; j < cp[cache_index]->assoc; j++)
+  {
+    copy[j].tag = cp[cache_index]->blocks[index][j].tag;
+    copy[j].valid = cp[cache_index]->blocks[index][j].valid;
+    copy[j].dirty = cp[cache_index]->blocks[index][j].dirty;
+    copy[j].LRU = cp[cache_index]->blocks[index][j].LRU;
+  }
+
+
+  int compare_function(const void* p1, const void* p2) 
+  {
+    return ( ((struct cache_blk_t*)p2)->LRU - ((struct cache_blk_t*)p1)->LRU);
+  }
+  qsort(copy, cp[cache_index]->assoc, sizeof(struct cache_blk_t), compare_function);
   
-  /* Suggested code for LRU: Use qsort to create a sorted array of LRUs
-    // copy array
-    struct cache_blk_t *copy = (struct cache_blk_t *)calloc(cp[cache_index]->assoc, sizeof(struct cache_blk_t));
+  print_slot(copy, cp[cache_index]->assoc);
+  // check both L1's to see if LRU is in either. if it is, go to next LRU
+  int found = 0;
+  int fi,fblock_address, fvalid, ftag, findex;
+  for (fi = 0; fi < cp[cache_index]->assoc; fi++)
+  {
+    fblock_address = index + copy[fi].tag * cp[cache_index]->nsets;
 
-    for (j = 0; j < cp[cache_index]->assoc; j++)
+    ftag = fblock_address / cp[0]->nsets;
+    findex = fblock_address - (ftag * cp[0]->nsets);
+    for (int fj = 0; fj < cp[0]->assoc; fj++)
     {
-      copy[j]->tag = cp[cache_index]->blocks[index][j].tag;
-      copy[j]->valid = cp[cache_index]->blocks[index][j].valid;
-      copy[j]->dirty = cp[cache_index]->blocks[index][j].dirty;
-      copy[j]->LRU = cp[cache_index]->blocks[index][j].LRU;
+      
+      if (cp[0]->blocks[findex][fj].tag == ftag && cp[0]->blocks[findex][fj].valid == 1)  
+        continue;
     }
-
-    qsort(copy, cp[cache_index]->assoc, sizeof(cache_block_t), compare_function)
-    int compare_function(const void * p1, const void * p2) 
+    printf("no\n");
+    //search Dcache
+    
+    ftag = fblock_address / cp[3]->nsets;
+    findex = fblock_address - (ftag * cp[3]->nsets);
+    for (int fj = 0; fj < cp[3]->assoc; fj++)
     {
-      return ( (cache_blk_t *)p1->LRU - (cache_blk_t *)p2->LRU);
+
+      if (cp[3]->blocks[findex][fj].tag == ftag && cp[0]->blocks[findex][fj].valid == 1) 
+        continue;
     }
+                printf("instr no\n");
 
-    // check both L1's to see if LRU is in either. if it is, go to next LRU
-    int found = 0;
-    int fi, fblock_address, ftag, findex;
-    for (fi = 0; fi < cp[cache_index]->assoc && found = 0; fi++)
+    ftag = fblock_address / cp[cache_index]->nsets;
+    break;
+    //if block is found in either, set found to 1
+    //if found is still 0 after checking both, for loop ends and can use the block in copy[fi] -> have to find it in the cache again, though
+  }
+
+
+  printf("ftag: %d", ftag);
+  for (way = 0; way < cp[cache_index]->assoc; way++)
+  { 
+    if (cp[cache_index]->blocks[index][way].tag == ftag)
     {
-      //set found = 0
-      //search Icache
-      fblock_address = (address / cp[0]->blocksize);
-      ftag = block_address / cp[0]->nsets;
-      findex = block_address - (ftag * cp[0]->nsets);
-      for (int fj = 0; fj < cp[0]->assoc; fj++)
+      printf("%d find %d\n", ftag, way);
+      updateLRU(cp[cache_index], index, way);
+      if (access_type == 1)
       {
-        if (cp[0]->blocks[findex][fj].tag == ftag) 
-          found = 1;
+        cp[cache_index]->blocks[index][way].dirty = 1;	// if writing, update dirty bit
       }
-      //search Dcache
-      fblock_address = (address / cp[3]->blocksize);
-      ftag = block_address / cp[3]->nsets;
-      findex = block_address - (ftag * cp[3]->nsets);
-      for (int fj = 0; fj < cp[3]->assoc; fj++)
-      {
-        if (cp[3]->blocks[findex][fj].tag == ftag) 
-          found = 1;
-      }
-
-      //if block is found in either, set found to 1
-      //if found is still 0 after checking both, for loop ends and can use the block in copy[fi] -> have to find it in the cache again, though
+      break;
     }
+  }
 
-    // after done w/ copy, free(copy)
-    */
-
+  // after done w/ copy, 
+  free(copy);
   
-
-  max = cp[cache_index]->blocks[index][0].LRU; /* find the LRU block */
-  way = 0;
-
-  for (i = 1; i < cp[cache_index]->assoc; i++)			// look through cache for LRU block
-    if (cp[cache_index]->blocks[index][i].LRU > max)
-    {
-      max = cp[cache_index]->blocks[index][i].LRU;		// update indices of LRU
-      way = i;
-    }
-  /*end of gets the least recently used block*/
-
-  // if evicting from L2, must search both L1s -> don't evict if block is in either
-  //if (cp[cache_index]){}
-
   /*end of check*/
   
   /*we can evict this block*/
@@ -194,21 +220,28 @@ if (cp[cache_index] == NULL)
     latency += cache_write_back(cp, cache_index + 1, evicted_address);
   }     
 
+  get_data:
+
   /*go down and "find" the data that we need to write to the block we just cleared*/
-  printf("Next level");
+  printf("Next level\n");
   latency = cache_access(cp, cache_index + 1, address, access_type, latency);
 
+  printf("index: %d, way: %d, tag:  %d", index, way, tag);
   /*write to the block we cleared out*/
   // add memory latency for writing new block
   cp[cache_index]->blocks[index][way].tag = tag;		    // update tag
   updateLRU(cp[cache_index], index, way);			        	// update LRU
-  cp[cache_index]->blocks[index][i].dirty = 0;			    // reset dirty bit
+  cp[cache_index]->blocks[index][way].dirty = 0;			    // reset dirty bit
+
+  print_slot(cp[cache_index]->blocks[index], cp[cache_index]->assoc);
+
 
   return latency;
 }
 
 int cache_write_back(struct cache_t **cp, int cache_index, unsigned long evicted_address)
 {
+  printf("wrtie back\n");
   if (cp[cache_index] == NULL){
     return M_miss_penalty;
   }

@@ -1,19 +1,28 @@
 
---- basic1.tr uses cache_config_basic1.txt (blocksize = 1, large assoc)
+[cycle 1] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 0)
+[cycle 2] LOAD: (PC: 1)(sReg_a: 0)(dReg: 0)(addr: 1)
+[cycle 3] STORE: (PC: 2)(sReg_a: 0)(sReg_b: 0)(addr: 0)
+[cycle 4] LOAD: (PC: 3)(sReg_a: 0)(dReg: 0)(addr: 1)
+[cycle 5] STORE: (PC: 4)(sReg_a: 0)(sReg_b: 0)(addr: 1)
+[cycle 6] LOAD: (PC: 5)(sReg_a: 0)(dReg: 0)(addr: 1)
 
-[cycle 1] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 1)
-[cycle 2] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 2)
-[cycle 3] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 1)
-[cycle 4] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 2)
-[cycle 5] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 2)
-[cycle 6] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 2)
-[cycle 7] NOP:+ Simulation terminates at cycle : 7
+[cycle 1] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 0)
+[cycle 2] LOAD: (PC: 1)(sReg_a: 0)(dReg: 0)(addr: 1)
+[cycle 3] STORE: (PC: 2)(sReg_a: 0)(sReg_b: 0)(addr: 2)
+[cycle 4] STORE: (PC: 3)(sReg_a: 0)(sReg_b: 0)(addr: 3)
 
+[cycle 1] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 0)
+[cycle 2] STORE: (PC: 1)(sReg_a: 0)(sReg_b: 0)(addr: 1)
+[cycle 3] STORE: (PC: 2)(sReg_a: 0)(sReg_b: 0)(addr: 2)
+[cycle 4] LOAD: (PC: 3)(sReg_a: 0)(dReg: 0)(addr: 0)
 
---- basic2.tr uses cache_config_basic2.txt (blocksize = 2, large assoc)
+[cycle 1] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 0)
+[cycle 2] LOAD: (PC: 1)(sReg_a: 0)(dReg: 0)(addr: 1)
+[cycle 3] LOAD: (PC: 2)(sReg_a: 0)(dReg: 0)(addr: 2)
+[cycle 4] LOAD: (PC: 3)(sReg_a: 0)(dReg: 0)(addr: 3)
+[cycle 5] LOAD: (PC: 4)(sReg_a: 0)(dReg: 0)(addr: 0)
+[cycle 6] STORE: (PC: 5)(sReg_a: 0)(sReg_b: 0)(addr: 1)
 
-[cycle 1] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 1)
-[cycle 2] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 2)
-[cycle 3] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 3)
-[cycle 4] STORE: (PC: 0)(sReg_a: 0)(sReg_b: 0)(addr: 4)
-+ Simulation terminates at cycle : 4
+[cycle 1] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 8)
+[cycle 2] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 9)
+[cycle 3] LOAD: (PC: 0)(sReg_a: 0)(dReg: 0)(addr: 10)
