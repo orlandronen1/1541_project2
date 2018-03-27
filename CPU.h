@@ -104,7 +104,7 @@ void print_stages(struct trace_item stages[]){
         }     
     }
     printf("\n"); 
-    getchar();        
+    //getchar();        
 }
 
 int is_big_endian(void)

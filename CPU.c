@@ -13,10 +13,10 @@
 
 unsigned int I_accesses = 0;
 unsigned int I_misses = 0;
-unsigned int D_read_accesses = 0;
-unsigned int D_read_misses = 0;
-unsigned int D_write_accesses = 0;
-unsigned int D_write_misses = 0;
+unsigned int D_accesses = 0;
+unsigned int D_misses = 0;
+unsigned int S_accesses = 0;
+unsigned int S_misses = 0;
 unsigned int M_miss_penalty = 0;
 
 #include "cache.h"
@@ -49,7 +49,6 @@ int main(int argc, char **argv)
     unsigned int t_PC = 0;
     unsigned int t_Addr = 0;
 
-    printf("yay");
 
     unsigned int cycle_number = 0;
     int branch_predict_delay = 0;
@@ -87,7 +86,10 @@ int main(int argc, char **argv)
 
     IL1_cache = cache_create(I_size, bsize, I_assoc, 0);
     DL1_cache = cache_create(D_size, bsize, D_assoc, 0);
-    SL2_cache = cache_create(S_size, bsize, S_assoc, S_miss_penalty);
+    if (S_size == 0)
+        SL2_cache = NULL;
+    else
+        SL2_cache = cache_create(S_size, bsize, S_assoc, S_miss_penalty);
 
     struct cache_t *instr_cache_list[4] = {IL1_cache, SL2_cache, NULL, DL1_cache};
     struct cache_t *data_cache_list[4] = {DL1_cache, SL2_cache, NULL, IL1_cache};
@@ -111,12 +113,28 @@ int main(int argc, char **argv)
     int data_mem_delay = 0;
     while (1)
     {
+        if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
+        {
+            int data_block_addr = stages[MEM1].Addr;
+            D_accesses++;
+            data_mem_delay = cache_access(data_cache_list, 0, data_block_addr * 1024, (stages[MEM1].type == ti_STORE), 0);
+        }
+        
+        if (data_mem_delay > 0)
+        {
+            D_misses++;
+            //push_stages_from(stages, MEM2, out);
+            cycle_number += data_mem_delay;
+            printf("Pipeline froze (Data Access Delay: %d)\n", data_mem_delay);
+            data_mem_delay = 0;
+        }
+
         //printf("Cycle number: %d\n", cycle_number);
         /* hazard detection */
-        //int hazard_detected = hazard_detect(stages, prediction_mode, &out);
+        int hazard_detected = hazard_detect(stages, prediction_mode, &out);
         //printf("hazard detection done\n");
-        // if (hazard_detected == hz_CTRL)
-        //     branch_predict_delay = 3;
+        if (hazard_detected == hz_CTRL)
+            branch_predict_delay = 3;
 
         /* branch prediction*/
         branch_predict(stages, prediction_mode);
@@ -128,23 +146,11 @@ int main(int argc, char **argv)
             push_stages_from(stages, EX, out);
             branch_predict_delay--;
         }
-        else //if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
+        else if (hazard_detected == 0) //&& instr_mem_delay == 0 && data_mem_delay == 0)
         {
-            getchar();
-            printf("%d", stages[MEM1].type);
-            if (stages[MEM1].type == ti_LOAD || stages[MEM1].type == ti_STORE)
-            {
-                int data_block_addr = stages[MEM1].Addr;
-                data_mem_delay = cache_access(data_cache_list, 0, data_block_addr * 1024, (stages[MEM1].type == ti_STORE), 0);
-            }
-            if (data_mem_delay > 0)
-            {
-                //push_stages_from(stages, MEM2, out);
-                cycle_number += data_mem_delay;
-                printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
-                data_mem_delay = 0;
-            }
-            getchar();
+            //getchar();
+            
+            //getchar();
 
             out = stages[WB];
 
@@ -167,19 +173,18 @@ int main(int argc, char **argv)
             }
             else
             {
-                // getchar();
-                // long instr_block_address = stages[IF1].PC / bsize;
-                // instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
+                long instr_block_address = stages[IF1].PC / bsize;
+                I_accesses++;
+                instr_mem_delay = cache_access(instr_cache_list, 0, instr_block_address, 0, 0);
 
-                // getchar();
-                
-                // if (instr_mem_delay > 0)
-                // {
-                //     //push_stages_from(stages, IF2, out);
-                //     cycle_number += instr_mem_delay;
-                //     data_mem_delay = 0;
-                //     printf("Pipeline froze (Instruction Fetch Delay: %d, Data Access Delay: %d\n", instr_mem_delay, data_mem_delay);
-                // }
+              
+                if (instr_mem_delay > 0)
+                {
+                    I_misses++;
+                    cycle_number += instr_mem_delay;
+                    data_mem_delay = 0;
+                    printf("Pipeline froze (Instruction Fetch Delay: %d)\n", instr_mem_delay);
+                }
 
                 t_type = tr_entry->type;
                 t_sReg_a = tr_entry->sReg_a;
@@ -192,13 +197,13 @@ int main(int argc, char **argv)
             cycle_number++;
         }
 
-        print_stages(stages);
+        //print_stages(stages);
         if (trace_view_on && out.type != ti_EMPTY)
         { /* print the executed instruction if trace_view_on=1 */
             switch (out.type)
             {
             case ti_NOP:
-                printf("[cycle %d] NOP\n:", cycle_number);
+                printf("[cycle %d] NOP:\n", cycle_number);
                 break;
             case ti_RTYPE:
                 printf("[cycle %d] RTYPE:", cycle_number);
@@ -237,5 +242,8 @@ int main(int argc, char **argv)
 
     trace_uninit();
 
-    exit(0);
-}
+    printf("L1 Data Cache:\t\t\t\t%d accesses, %d hits, %d misses, miss rate: %f\n", D_accesses, D_accesses - D_misses, D_misses, D_misses/ (float)D_accesses);
+    printf("L1 Instruction Cache:\t\t\t%d accesses, %d hits, %d misses, miss rate: %f\n", I_accesses, I_accesses - I_misses, I_misses, I_misses/ (float)I_accesses);
+    printf("L2 Data Cache:\t\t\t\t%d accesses, %d hits, %d misses, miss rate: %f\n", S_accesses, S_accesses - S_misses, S_misses, S_misses/ (float)S_accesses);
+
+    exit(0);}
